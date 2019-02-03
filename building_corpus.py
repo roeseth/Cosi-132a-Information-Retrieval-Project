@@ -7,7 +7,7 @@ import timeit
 import asyncio
 
 
-async def parse_entry(p):
+def parse_entry(p):
     entry_name_no_film = re.sub(r' \(film\)| \(2018 film\)', '', p.title)
     imdb = imdbParser(entry_name_no_film)
     info = {}
@@ -59,29 +59,21 @@ def parse_minutes(str):
     return int(re.match(r'\d+', str).group())
 
 
-async def job(p, i, json_data):
-    if p.title.startswith('Category:'): return
-    info = await parse_entry(p)
-    json_data[i] = info
-    print(info)
-
-
 start = timeit.default_timer()
 wiki = wikipediaapi.Wikipedia('en')
 cat = wiki.page("Category:2018 films")
 cat_pages = [wiki.page(p) for p in cat.categorymembers]
 
 json_data = {}
-loop = asyncio.get_event_loop()
-tasks = [
-    job(p, i, json_data)
-    for i, p in enumerate(cat_pages)
-]
-loop.run_until_complete(asyncio.wait(tasks))
-loop.close()
 
-# with open('data.json', 'w') as f:
-#     json.dump(json_data, f)
+for i, p in enumerate(cat_pages):
+    if not p.title.startswith('Category:'):
+        info = parse_entry(p)
+        json_data[i] = info
+        print(info)
+
+with open('data.json', 'w') as f:
+    json.dump(json_data, f)
 
 stop = timeit.default_timer()
 print('Time: ', stop - start)
