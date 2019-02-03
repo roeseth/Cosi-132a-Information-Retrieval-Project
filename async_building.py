@@ -9,26 +9,19 @@ import wikipediaapi
 import wptools
 import re
 import json
-from imdbparser import imdbParser
+from async_imdb_parser import imdbParser
 import requests
 
-fetched = set()
-unfetched = set()
 base_url = "http://www.imdb.com/"
 title_url = base_url + "title/"
 search_url = base_url + "find?s=tt&ttype=ft&q="
-json_data = {}
 
 
-def crawl(p):
-    title = p.title
-    entry_name_no_film = re.sub(r' \(film\)| \(2018 film\)', '', title)
-    id_html = scrap_site(search_url + entry_name_no_film)
-    soup = BeautifulSoup(id_html, "lxml")
-    movie = soup.find('td', {'class': 'result_text'}).a
-    id = movie['href'].split('/')[2]
-
-    html = scrap_site(title_url + id + "/")
+async def crawl_id(p, session):
+    print("crawling id: " + p.title)
+    entry_name_no_film = re.sub(r' \(film\)| \(2018 film\)', '', p.title)
+    html = await scrap_site(search_url + entry_name_no_film, session)
+    print('returned id')
     return p, html
 
     # r = await session.get(url)
@@ -37,49 +30,40 @@ def crawl(p):
     # return html
 
 
-def scrap_site(url):
+def parse_id(p, html):
+    print("parsing id: " + p.title)
     try:
-        resp = requests.get(url)
-        html = resp.text()
+        soup = BeautifulSoup(html, 'lxml')
+        movie = soup.find('td', {'class': 'result_text'}).a
+        id = movie['href'].split('/')[2]
+        return p, id
+    except Exception:
+        return p, ''
+
+
+async def crawl_entry(p, id, session):
+    print("crawling entry: " + p.title)
+    html = None
+    if not id == '':
+        html = await scrap_site(title_url + id + "/", session)
+        print('returned id html')
+    return p, html
+
+
+async def scrap_site(url, session):
+    print("scraping url: " + url)
+    try:
+        resp = await session.get(url)
+        html = await resp.text()
+        print("scraping url done: " + url)
         return html
     except Exception:
-        print("Problem with the network connection")
+        print("scraping url ERROR: " + url)
         return None
 
 
-async def main(loop):
-    pool = mp.Pool(2)  # slightly affected
-    async with aiohttp.ClientSession() as session:
-        count = 1
-
-        while len(unfetched) != 0:
-            # tasks = [loop.create_task(crawl(p, session)) for p in unfetched]
-            # done, pending = await asyncio.wait(tasks)
-            # htmls = [f.result() for f in done]
-
-            crawl_jobs = [pool.apply_async(crawl, args = (p,)) for p in unfetched]
-            htmls = [j.get() for j in crawl_jobs]
-
-            parse_jobs = [pool.apply_async(parse_entry, args = (p, html,)) for p, html in htmls]
-            results = [j.get() for j in parse_jobs]
-
-            fetched.update(unfetched)
-            unfetched.clear()
-            for info in results:
-                json_data[count] = info
-                print(info)
-                count += 1
-
-
-# def parse(html):
-#     soup = BeautifulSoup(html, 'lxml')
-#     urls = soup.find_all('a', {"href": re.compile('^/.+?/$')})
-#     title = soup.find('h1').get_text().strip()
-#     page_urls = set([urljoin(base_url, url['href']) for url in urls])
-#     url = soup.find('meta', {'property': "og:url"})['content']
-#     return title, page_urls, url
-
 def parse_entry(p, html):
+    print("parsing entry: " + p.title)
     imdb = imdbParser(p.title, html)
     info = {}
     if imdb.has_match():
@@ -130,15 +114,61 @@ def parse_minutes(str):
     return int(re.match(r'\d+', str).group())
 
 
+async def main(loop, list, json_data):
+    pool = mp.Pool(2)  # slightly affected
+
+    results_id = set()
+    unfetched = list
+    fetched = set()
+    async with aiohttp.ClientSession() as session:
+
+        while len(unfetched) != 0:
+            tasks = [loop.create_task(crawl_id(p, session)) for p in unfetched]
+            done, pending = await asyncio.wait(tasks)
+            htmls = [d.result() for d in done]
+
+            parse_id_jobs = [pool.apply_async(parse_id, args = (p, html,)) for p, html in htmls]
+            results_id = [j.get() for j in parse_id_jobs]
+
+            fetched.update(unfetched)
+            unfetched.clear()
+    print('finished fetching ids')
+    unfetched = results_id
+    fetched.clear()
+    async with aiohttp.ClientSession() as session:
+        count = 1
+        while len(unfetched) != 0:
+
+            tasks = [loop.create_task(crawl_entry(p, id, session)) for p, id in unfetched]
+            done, pending = await asyncio.wait(tasks)
+            htmls = [d.result() for d in done]
+
+            parse_jobs = [pool.apply_async(parse_entry, args = (p, html,)) for p, html in htmls]
+            results = [j.get() for j in parse_jobs]
+
+            fetched.update(unfetched)
+            unfetched.clear()
+            for info in results:
+                json_data[count] = info
+                print(info)
+                count += 1
+
+
 if __name__ == "__main__":
     t1 = time.time()
 
     wiki = wikipediaapi.Wikipedia('en')
     cat = wiki.page("Category:2018 films")
-    unfetched = [wiki.page(p) for p in cat.categorymembers]
+    cat_pages = [wiki.page(p) for p in cat.categorymembers]
+    json_data = {}
+    list = set()
+    for p in cat.categorymembers:
+        page = wiki.page(p)
+        if not page.title.startswith('Category:'):
+            list.add(page)
 
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(main(loop))
+    loop.run_until_complete(main(loop, list, json_data))
     loop.close()
 
     # with open('data.json', 'w') as f:
