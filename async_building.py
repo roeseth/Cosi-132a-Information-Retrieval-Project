@@ -2,16 +2,17 @@ import aiohttp
 import asyncio
 import time
 from bs4 import BeautifulSoup
-from urllib.request import urljoin
-import re
 import multiprocessing as mp
 import wikipediaapi
 import wptools
 import re
 import json
 from async_imdb_parser import imdbParser
-import requests
+import sys
+import logging
 
+logging.basicConfig(filename='logger.log', level=logging.ERROR)
+#sys.setrecursionlimit(10000)
 base_url = "http://www.imdb.com/"
 title_url = base_url + "title/"
 search_url = base_url + "find?s=tt&ttype=ft&q="
@@ -19,15 +20,11 @@ search_url = base_url + "find?s=tt&ttype=ft&q="
 
 async def crawl_id(p, session):
     print("crawling id: " + p.title)
-    entry_name_no_film = re.sub(r' \(film\)| \(2018 film\)', '', p.title)
+    entry_name_no_film = re.sub(r'\s\(.*film\)', '', p.title)
+    print(p.title + ':' + entry_name_no_film)
     html = await scrap_site(search_url + entry_name_no_film, session)
-    print('returned id')
+    print('returned id html')
     return p, html
-
-    # r = await session.get(url)
-    # html = await r.text()
-    # await asyncio.sleep(0.1)  # slightly delay for downloading
-    # return html
 
 
 def parse_id(p, html):
@@ -38,13 +35,14 @@ def parse_id(p, html):
         id = movie['href'].split('/')[2]
         return p, id
     except Exception:
+        logging.error("parsing id ERROR: " + p.title)
         return p, ''
 
 
 async def crawl_entry(p, id, session):
     print("crawling entry: " + p.title)
     html = None
-    if not id == '':
+    if id != '':
         html = await scrap_site(title_url + id + "/", session)
         print('returned id html')
     return p, html
@@ -58,7 +56,7 @@ async def scrap_site(url, session):
         print("scraping url done: " + url)
         return html
     except Exception:
-        print("scraping url ERROR: " + url)
+        logging.error("scraping url ERROR: " + url)
         return None
 
 
@@ -123,8 +121,8 @@ async def main(loop, list, json_data):
     async with aiohttp.ClientSession() as session:
 
         while len(unfetched) != 0:
-            tasks = [loop.create_task(crawl_id(p, session)) for p in unfetched]
-            done, pending = await asyncio.wait(tasks)
+            tasks = [loop.create_task(crawl_id(p, session,)) for p in unfetched]
+            done, pending = await asyncio.wait(tasks, timeout = 10)
             htmls = [d.result() for d in done]
 
             parse_id_jobs = [pool.apply_async(parse_id, args = (p, html,)) for p, html in htmls]

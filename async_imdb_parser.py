@@ -1,6 +1,4 @@
 import re
-import requests
-import aiohttp
 from bs4 import BeautifulSoup
 
 
@@ -22,21 +20,21 @@ class imdbParser:
 
     def get_director(self):
         try:
-            self.info['director'] = self.soup.find('div', {'class': 'credit_summary_item'}).a.string
+            self.info['director'] = str(self.soup.find('div', {'class': 'credit_summary_item'}).a.string)
         except Exception:
             self.info['director'] = ''
         return self.info['director']
 
     def get_runtime(self):
         try:
-            self.info['runtime'] = re.sub(r'\smin', '', self.soup.find('h4', string = 'Runtime:').parent.time.string)
+            self.info['runtime'] = re.sub(r'\smin', '', str(self.soup.find('h4', string = 'Runtime:').parent.time.string))
         except Exception:
             self.info['runtime'] = ''
         return self.info['runtime']
 
     def get_language(self):
         try:
-            self.info['language'] = self.soup.find('h4', string = 'Language:').parent.a.string
+            self.info['language'] = str(self.soup.find('h4', string = 'Language:').parent.a.string)
         except Exception:
             self.info['language'] = ''
         return self.info['language']
@@ -45,7 +43,7 @@ class imdbParser:
         country = [];
         try:
             for tag in self.soup.find('h4', string = 'Country:').parent.find_all('a'):
-                country.append(tag.string)
+                country.append(str(tag.string))
             self.info['country'] = country
         except Exception:
             self.info['country'] = []
