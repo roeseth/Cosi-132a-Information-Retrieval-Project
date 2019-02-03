@@ -37,7 +37,7 @@ async def parse_entry(p):
     info['text'] = p.text
     cats = []
     for k in p.categories.keys():
-        if k.startswith('Use') : continue
+        if k.startswith('Use'): continue
         cats.append(k[9:])
     info['categories'] = cats
 
@@ -45,7 +45,8 @@ async def parse_entry(p):
 
 
 def parse_sublist(str):
-    return re.findall(r'\w{1,}\.?\s\w{1,}\.?\s\w{1,}\.?|\w{1,}\.?\s\w{1,}\.?|\w{4,}', re.sub(r'Unbullted list|Plainlist|plainlist','',str))
+    return re.findall(r'\w{1,}\.?\s\w{1,}\.?\s\w{1,}\.?|\w{1,}\.?\s\w{1,}\.?|\w{4,}',
+                      re.sub(r'Unbullted list|Plainlist|plainlist', '', str))
 
 
 def parse_director(str):
@@ -53,8 +54,10 @@ def parse_director(str):
                     str.replace('[[', '').replace(']]', '').replace('{{', '').replace(
                         '}}', ''))[0]
 
+
 def parse_minutes(str):
     return int(re.match(r'\d+', str).group())
+
 
 async def job(p, i, json_data):
     if p.title.startswith('Category:'): return
@@ -74,7 +77,7 @@ tasks = [
     job(p, i, json_data)
     for i, p in enumerate(cat_pages)
 ]
-loop.run_until_complete( asyncio.wait(tasks) )
+loop.run_until_complete(asyncio.wait(tasks))
 loop.close()
 
 # with open('data.json', 'w') as f:

@@ -18,31 +18,31 @@ class imdbParser:
         self.id = self.get_id_from_title(title)
         self.soup = self.scrap_site(self.titleUrl + self.id + "/")
 
-    async def has_match(self):
+    def has_match(self):
         return self.id != ''
 
-    async def get_director(self):
+    def get_director(self):
         try:
             self.info['director'] = self.soup.find('div', {'class': 'credit_summary_item'}).a.string
         except Exception:
             self.info['director'] = ''
         return self.info['director']
 
-    async def get_runtime(self):
+    def get_runtime(self):
         try:
             self.info['runtime'] = re.sub(r'\smin', '', self.soup.find('h4', string = 'Runtime:').parent.time.string)
         except Exception:
             self.info['runtime'] = ''
         return self.info['runtime']
 
-    async def get_language(self):
+    def get_language(self):
         try:
             self.info['language'] = self.soup.find('h4', string = 'Language:').parent.a.string
         except Exception:
             self.info['language'] = ''
         return self.info['language']
 
-    async def get_country(self):
+    def get_country(self):
         country = [];
         try:
             for tag in self.soup.find('h4', string = 'Country:').parent.find_all('a'):
@@ -52,7 +52,7 @@ class imdbParser:
             self.info['country'] = []
         return self.info['country']
 
-    async def get_cast_list(self):
+    def get_cast_list(self):
         cast_list = []
         try:
             for tr in self.soup.find('table', {'class': 'cast_list'}).find_all('tr'):
@@ -64,7 +64,7 @@ class imdbParser:
             self.info['cast list'] = []
         return self.info['cast list']
 
-    async def get_id_from_title(self, title):
+    def get_id_from_title(self, title):
         try:
             soup = self.scrap_site(self.searchUrl + title)
             movie = soup.find('td', {'class': 'result_text'}).a
@@ -74,7 +74,7 @@ class imdbParser:
             return ""
 
     @staticmethod
-    async def scrap_site(url):
+    def scrap_site(url):
         try:
             resp = requests.get(url)
             return BeautifulSoup(resp.text, "lxml")
