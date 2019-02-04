@@ -148,7 +148,7 @@ async def scrap_site(url, session):
 
 
 async def main(loop, list, json_data):
-    """ Main method to handle asynchronous tasks
+    """ Main method to handle all asynchronous tasks
 
     :param loop: asyncio event loop
     :param list: the fetching list of movies (list of tuples (wiki.page, index))
