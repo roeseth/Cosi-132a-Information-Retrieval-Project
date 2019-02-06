@@ -1,58 +1,55 @@
 import re
-import requests
-import aiohttp
 from bs4 import BeautifulSoup
 
-
 class imdbParser:
-    baseUrl = "http://www.imdb.com/"
-    titleUrl = baseUrl + "title/"
-    searchUrl = baseUrl + "find?s=tt&ttype=ft&q="
+    """
+        An IMDB Parser Class
+    """
     title = None
-    id = ''
+    soup = None
     info = {}
-    soup = None;
 
-    def __init__(self, title):
+    def __init__(self, title, html):
         self.title = title
-        self.id = self.get_id_from_title(title)
-        self.soup = self.scrap_site(self.titleUrl + self.id + "/")
+        if html is not None:
+            self.soup = BeautifulSoup(html, 'lxml')  # Get some soup for the parser
 
-    def has_match(self):
-        return self.id != ''
+    def has_match(self):  # Return true if the parser has soup and able to extract data from it
+        return self.soup is not None
 
-    def get_director(self):
+    def get_director(self):  # A getter to extract the director
         try:
-            self.info['director'] = self.soup.find('div', {'class': 'credit_summary_item'}).a.string
+            self.info['director'] = str(self.soup.find('div', {'class': 'credit_summary_item'}).a.string)
         except Exception:
             self.info['director'] = ''
         return self.info['director']
 
-    def get_runtime(self):
+    def get_runtime(self):  # A getter to extract the running time
         try:
-            self.info['runtime'] = re.sub(r'\smin', '', self.soup.find('h4', string = 'Runtime:').parent.time.string)
+            self.info['runtime'] = re.sub(r'\smin', '',  # Getting rid of the 'min' at the tail
+                                          str(self.soup.find('h4', string = 'Runtime:').parent.time.string))
         except Exception:
             self.info['runtime'] = ''
         return self.info['runtime']
 
-    def get_language(self):
+    def get_language(self):  # A getter to extract the language
         try:
-            self.info['language'] = self.soup.find('h4', string = 'Language:').parent.a.string
+            self.info['language'] = str(self.soup.find('h4', string = 'Language:').parent.a.string)
         except Exception:
             self.info['language'] = ''
         return self.info['language']
 
-    def get_country(self):
+    def get_country(self):   # A getter to extract the country list
         country = [];
         try:
             for tag in self.soup.find('h4', string = 'Country:').parent.find_all('a'):
-                country.append(tag.string)
+                country.append(str(tag.string))
             self.info['country'] = country
         except Exception:
             self.info['country'] = []
         return self.info['country']
 
-    def get_cast_list(self):
+    def get_cast_list(self):  # A getter to extract the cast list
         cast_list = []
         try:
             for tr in self.soup.find('table', {'class': 'cast_list'}).find_all('tr'):
@@ -63,20 +60,3 @@ class imdbParser:
         except Exception:
             self.info['cast list'] = []
         return self.info['cast list']
-
-    def get_id_from_title(self, title):
-        try:
-            soup = self.scrap_site(self.searchUrl + title)
-            movie = soup.find('td', {'class': 'result_text'}).a
-            return movie['href'].split('/')[2]
-        except Exception:
-            print("Cant get data extracted")
-            return ""
-
-    @staticmethod
-    def scrap_site(url):
-        try:
-            resp = requests.get(url)
-            return BeautifulSoup(resp.text, "lxml")
-        except Exception:
-            print("Problem with the network connection")

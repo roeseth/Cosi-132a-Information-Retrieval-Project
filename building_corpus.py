@@ -4,10 +4,12 @@ import time
 from bs4 import BeautifulSoup
 import multiprocessing as mp
 import wikipediaapi
-import wptools
 import re
 import json
 import logging
+from wpparser import wpParser
+from imdbparser import imdbParser
+import sys
 
 # Log error message to file
 logging.basicConfig(filename = 'logger_building_corpus.log', filemode = 'w', level = logging.ERROR)
@@ -17,7 +19,7 @@ TITLE_URL = BASE_URL + "title/"
 SEARCH_URL = BASE_URL + "find?s=tt&ttype=ft&q="
 
 MP_CORE = 6  # Core no. for multiprocessing
-
+TIME_OUT = 10 # for async aiohttp task time out
 
 def de_film(str):
     """ To get a cleaner film title
@@ -166,7 +168,7 @@ async def main(loop, list, json_data):
         pending = set(tasks.keys())
         htmls = []
         while pending:
-            done, pending = await asyncio.wait(pending, timeout = 10)
+            done, pending = await asyncio.wait(pending, timeout = TIME_OUT)
             htmls.extend([d.result() for d in done])
             new_pending = set()
             for t in pending:
@@ -202,6 +204,9 @@ async def main(loop, list, json_data):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) == 3:
+        MP_CORE = int(sys.argv[1])
+        TIME_OUT = int(sys.argv[2])
     t1 = time.time()
     # Gathering all entries under 'Category:2018 films'
     wiki = wikipediaapi.Wikipedia('en')
@@ -231,115 +236,3 @@ if __name__ == "__main__":
         json.dump(json_sorted, f)
 
     print('Finished writing JSON. JSON corpus built in total time: ' + str(time.time() - t1) + 's')
-
-
-class imdbParser:
-    """
-        An IMDB Parser Class
-    """
-    title = None
-    soup = None
-    info = {}
-
-    def __init__(self, title, html):
-        self.title = title
-        if html is not None:
-            self.soup = BeautifulSoup(html, 'lxml')  # Get some soup for the parser
-
-    def has_match(self):  # Return true if the parser has soup and able to extract data from it
-        return self.soup is not None
-
-    def get_director(self):  # A getter to extract the director
-        try:
-            self.info['director'] = str(self.soup.find('div', {'class': 'credit_summary_item'}).a.string)
-        except Exception:
-            self.info['director'] = ''
-        return self.info['director']
-
-    def get_runtime(self):  # A getter to extract the running time
-        try:
-            self.info['runtime'] = re.sub(r'\smin', '',  # Getting rid of the 'min' at the tail
-                                          str(self.soup.find('h4', string = 'Runtime:').parent.time.string))
-        except Exception:
-            self.info['runtime'] = ''
-        return self.info['runtime']
-
-    def get_language(self):  # A getter to extract the language
-        try:
-            self.info['language'] = str(self.soup.find('h4', string = 'Language:').parent.a.string)
-        except Exception:
-            self.info['language'] = ''
-        return self.info['language']
-
-    def get_country(self):   # A getter to extract the country list
-        country = [];
-        try:
-            for tag in self.soup.find('h4', string = 'Country:').parent.find_all('a'):
-                country.append(str(tag.string))
-            self.info['country'] = country
-        except Exception:
-            self.info['country'] = []
-        return self.info['country']
-
-    def get_cast_list(self):  # A getter to extract the cast list
-        cast_list = []
-        try:
-            for tr in self.soup.find('table', {'class': 'cast_list'}).find_all('tr'):
-                tds = tr.find_all('td')
-                if len(tds) > 2:
-                    cast_list.append(re.sub(r'[\t\r\n]', '', "".join(tds[1].find_all(text = True))).strip())
-            self.info['cast list'] = cast_list
-        except Exception:
-            self.info['cast list'] = []
-        return self.info['cast list']
-
-
-class wpParser:
-    """
-        A Wikipedia Parser using wpotools
-    """
-    title = None
-    soup = None
-    info = {}
-
-    def __init__(self, title):
-        p = wptools.page(title)
-        self.title = title
-        p.get_parse()
-        tmpbox = p.data['infobox']
-        if tmpbox is None:
-            tmpbox = {}
-        # Fill the info Dict while the parser being initialized
-        # If info not available, fill blank
-        self.info['director'] = self.parse_director(tmpbox['director']) if 'director' in tmpbox else ''
-        self.info['starring'] = self.parse_sublist(tmpbox['starring']) if 'starring' in tmpbox else []
-        self.info['running time'] = self.parse_minutes(tmpbox['runtime']) if 'runtime' in tmpbox else ''
-        self.info['country'] = self.parse_sublist(tmpbox['country']) if 'country' in tmpbox else []
-        self.info['language'] = tmpbox['language'] if 'language' in tmpbox else ''
-
-    @staticmethod
-    def parse_sublist(str):
-        """ To get a list of names from the messy string wptools returned
-
-        :param str: the string from wptools
-        :return: a list of names/locations
-        """
-        # Getting rid of invalid words and extract name if following the format
-        # 'www', 'www www', 'www www www', 'w.', 'w. www', etc.
-        return re.findall(r'\w{1,}\.?\s\w{1,}\.?\s\w{1,}\.?|\w{1,}\.?\s\w{1,}\.?|\w{4,}',
-                          re.sub(r'Unbullted list|Plainlist|plainlist', '', str))
-
-    @staticmethod
-    def parse_director(str):
-        """ To format the director name from the messy string wptools returned
-
-        :param str: the string from wptools
-        :return: a clean director name
-        """
-        # Getting rid of invalid characters and retrieve the first director name
-        # Sometime wptools returns two names
-        return re.split(r'<br>|\|', re.sub(r'\[{2}|\]{2}|\{{2}|\}{2}', '', str))[0]
-
-    @staticmethod
-    def parse_minutes(str):  # Getting the first number in the string and ignore ' minutes'
-        return int(re.search(r'\d+', str).group())
