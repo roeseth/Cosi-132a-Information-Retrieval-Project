@@ -207,6 +207,7 @@ if __name__ == "__main__":
     if len(sys.argv) == 3:
         MP_CORE = int(sys.argv[1])
         TIME_OUT = int(sys.argv[2])
+    print('Number of Processes=' + str(MP_CORE) + '   Time Out=' + str(TIME_OUT) + 's')
     t1 = time.time()
     # Gathering all entries under 'Category:2018 films'
     wiki = wikipediaapi.Wikipedia('en')
