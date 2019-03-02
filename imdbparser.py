@@ -1,6 +1,7 @@
 import re
 from bs4 import BeautifulSoup
 
+
 class imdbParser:
     """
         An IMDB Parser Class
@@ -39,7 +40,7 @@ class imdbParser:
             self.info['language'] = ''
         return self.info['language']
 
-    def get_country(self):   # A getter to extract the country list
+    def get_country(self):  # A getter to extract the country list
         country = [];
         try:
             for tag in self.soup.find('h4', string = 'Country:').parent.find_all('a'):

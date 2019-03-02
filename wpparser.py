@@ -1,6 +1,7 @@
 import wptools
 import re
 
+
 class wpParser:
     """
         A Wikipedia Parser using wpotools
@@ -20,9 +21,15 @@ class wpParser:
         # If info not available, fill blank
         self.info['director'] = self.parse_director(tmpbox['director']) if 'director' in tmpbox else ''
         self.info['starring'] = self.parse_sublist(tmpbox['starring']) if 'starring' in tmpbox else []
-        self.info['running time'] = self.parse_minutes(tmpbox['runtime']) if 'runtime' in tmpbox else ''
+        if 'runtime' in tmpbox:
+            time = self.parse_minutes(tmpbox['runtime'])
+        elif 'duration' in tmpbox:
+            time = self.parse_minutes(tmpbox['duration'])
+        else:
+            time = ''
+        self.info['running time'] = time
         self.info['country'] = self.parse_sublist(tmpbox['country']) if 'country' in tmpbox else []
-        self.info['language'] = tmpbox['language'] if 'language' in tmpbox else ''
+        self.info['language'] = self.parse_sublist(tmpbox['language']) if 'language' in tmpbox else ''
 
     @staticmethod
     def parse_sublist(str):
@@ -49,4 +56,11 @@ class wpParser:
 
     @staticmethod
     def parse_minutes(str):  # Getting the first number in the string and ignore ' minutes'
-        return int(re.search(r'\d+', str).group())
+        patt = re.compile(r'\d+')
+        time = patt.findall(str)
+        t1 = int(time[0])
+        t2 = 0
+        if len(time) > 1 and t1 <= 3:
+            t2 = int(time[1])
+            return t1 * 60 + t2
+        return t1
