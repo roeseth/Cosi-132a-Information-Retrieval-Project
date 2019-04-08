@@ -26,16 +26,22 @@ def index(id):
 if __name__ == "__main__":
     import time
 
+    # setup timer
     s = time.perf_counter()
 
+    # open files
     idx = shelve.open('corpus_index.dat', flag = 'n', writeback = False)
     sw = shelve.open('stop_words.dat', flag = 'n', writeback = False)
     with open('films_corpus.json', 'r', encoding = 'UTF-8') as f:
         data = json.load(f)
+
+    # get and store the stopwords list
     sw['stop_words'] = stopwords.words('english')
     stop_words = sw['stop_words']
 
+    # create a in-RAM index and later store in disk
     cache_index = {}
+
     for id in data:
         index(id)
 

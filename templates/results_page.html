@@ -2,23 +2,23 @@
 
 <body bgcolor="#CCFFCC">
 
-<h3>2019 Film Search</h3>  
+<h3>2019 Film Search</h3>
 
 <form action="/results" name="search" method="post">
-  Query:
-  <input type="text" name="query" size=50 value="{{ orig_query }}">
-  <input type="submit" value="Search">
-  <input type="hidden" name="page_num" value="1">
+    Query:
+    <input type="text" name="query" size=50 value="{{ orig_query }}">
+    <input type="submit" value="Search">
+    <input type="hidden" name="page_num" value="1">
+    <input type="hidden" name="missing" value="1">
 
 </form>
-  
+
 <h1>Search Results:</h1>
 
 {# Display unknown words if they appear in the query. #}
 {% if unknown_terms != []: %}
 <h5>Your query contained word(s) not found in the corpus: {{ unknown_terms }}</h5>
-<h5>Total hits: 0<br></h5>
-{% else: %}
+{% endif %}
 
 {# Display stopwords if they appear in the query. #}
 {% if skipped_words != []: %}
@@ -26,28 +26,59 @@
 {% endif %}
 
 <h5>Total hits: {{ total_hits }}<br></h5>
+<h5>Query time: {{ query_time }}s<br></h5>
 
 <ol>
     {% for i in range(len) %}
 
     {# Make the list item value indicate the number of the nth result #}
-    {# Each member of movie_results variable contains the doc_id, movie title, 
-       and abstract, as returned by dummy_movie_snippet. 
-       Include a link to a url containing the doc_id as a parameter: /movie_data/<doc_id>
-       Use the title as the anchor text for the link.
-       Follow this with the abstract text.
-       Note that in the flask template language, you can use "." to access attributes of a variable, 
-       similar to the python [i]. #}
+    {# Each member of movie_results variable contains the doc_id, movie title,
+    and abstract, as returned by dummy_movie_snippet.
+    Include a link to a url containing the doc_id as a parameter: /movie_data/
+    <doc_id>
+        Use the title as the anchor text for the link.
+        Follow this with the abstract text.
+        Note that in the flask template language, you can use "." to access attributes of a variable,
+        similar to the python [i]. #}
 
-    	<li value="{{ (srpn-1)*10 + i + 1 }}"><h4><a href="/movie_data/{{ movie_results[i].0 }}">{{ movie_results[i].1 }}</a></h4></li>
-	<ul><li>{{ movie_results[i].2 }}</li></ul>
-    {% endfor %}
+        <li value="{{ (srpn-1)*10 + i + 1 }}"><h4><a href="/movie_data/{{ movie_results[i].0 }}">{{ movie_results[i].1
+            }}</a></h4></li>
+        <ul>
+            <li>
+                <form id="morelike" action="/results" method="post">
+                    <input type="hidden" name="query" value="{{ movie_results[i].1 + movie_results[i].2 }}"/>
+                    <input type="hidden" name="page_num" value="1">
+                    <input type="hidden" name="missing" value="0">
+                    <a href="#" onclick="document.getElementById('morelike').submit();">More Like This</a>
+                </form>
+            </li>
+        </ul>
+        <ul>
+            <li>Cosine Match Score: {{ movie_results[i].3 }}</li>
+        </ul>
+        <ul>
+            <li>{{ movie_results[i].2 }}</li>
+        </ul>
+        {% if missing %}
+        {% if terms_usage[i].0 != []: %}
+        <ul>
+            <li>Missing Terms: {{ terms_usage[i].0 }}</li>
+        </ul>
+        {% endif %}
+        {% else: %}
+        {% if terms_usage[i].0 != []: %}
+        <ul>
+            <li>Matched Terms: {{ terms_usage[i].1 }}</li>
+        </ul>
+        {% endif %}
+        {% endif %}
+        {% endfor %}
 </ol>
 
 <form action="/results" name="next" method="post">
-  <input type="hidden" name="query", value="{{ orig_query }}">
-  <input type="submit" value="Next">
-  <input type="hidden" name="page_num" value="{{ srpn + 1 }}" >
+    <input type="hidden" name="query" , value="{{ orig_query }}">
+    <input type="submit" value="Next">
+    <input type="hidden" name="page_num" value="{{ srpn + 1 }}">
+    <input type="hidden" name="missing" value="1">
 </form>
-{% endif %}
 </body>

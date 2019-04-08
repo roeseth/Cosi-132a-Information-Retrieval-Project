@@ -8,7 +8,14 @@ Boolean search, snippet generation, and doc_data presentation.
 
 
 def search(query, idx):
-    """Return a list of movie ids that match the query."""
+    """Return a list of movie ids that match the query.
+    intersect one by one from the shortest posting list
+
+    :param query:
+    :param idx:
+    :return:
+    """
+
     if len(query) == 0:
         return []
     ordered = {}
@@ -24,6 +31,12 @@ def search(query, idx):
 
 
 def intersect(p1, p2):
+    """ doing intersection of posting list p1 and p2
+
+    :param p1:
+    :param p2:
+    :return:
+    """
     posts = []
     i = 0
     j = 0
